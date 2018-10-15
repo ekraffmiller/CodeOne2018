@@ -32,7 +32,7 @@ public static void main(String args[]) {
      SimpleSparkApp app = new SimpleSparkApp();
      SparkSession session = SparkSession
                 .builder()
-                .appName("WordCount")
+                .appName("demo")
                 .getOrCreate();
      String readFileURI = session.sparkContext().getConf().get("spark.codeOne.demo.readFileURI");
      app.run(session, readFileURI);
@@ -65,8 +65,6 @@ public static void main(String args[]) {
             }
             System.out.println(Arrays.toString(terms));} );
             
-      
-   
     }
 
     private Dataset<Row> loadCloudText(SparkSession session, String fromURI) {
@@ -83,14 +81,18 @@ public static void main(String args[]) {
         if (fromURI!=null ) {
             return loadCloudText(session,fromURI);
         } else {
-            List<Row> simple = Arrays.asList(RowFactory.create(this.bushSotuText));
+            return loadLocalText(session);
+            }
+    }
+   
+    private Dataset<Row> loadLocalText(SparkSession session) {
+       List<Row> simple = Arrays.asList(RowFactory.create(this.bushSotuText));
             JavaSparkContext jsc = new JavaSparkContext(session.sparkContext());
             JavaRDD<Row> rdd = jsc.parallelize(simple);
             StructType schema = new StructType();
             schema = schema.add("text", DataTypes.StringType);
             Dataset<Row> textDF = session.createDataFrame(rdd.rdd(), schema);
-            return textDF;
-            }
+            return textDF; 
     }
     
     

@@ -31,7 +31,7 @@ public class SimpleSparkAppTest {
                 .config(conf)
                 .getOrCreate();
       
-        SimpleSparkApp app = new SimpleSparkApp();
+        SimpleSparkApp app = new  SimpleSparkApp();
         
         app.run(session,null);
           
