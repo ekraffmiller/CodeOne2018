@@ -12,7 +12,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.ml.Pipeline;
 import org.apache.spark.ml.PipelineModel;
 import org.apache.spark.ml.PipelineStage;
-import org.apache.spark.ml.clustering.LDAModel;
 import org.apache.spark.ml.feature.HashingTF;
 import org.apache.spark.ml.feature.StopWordsRemover;
 import org.apache.spark.ml.feature.Tokenizer;
@@ -37,13 +36,14 @@ public static void main(String args[]) {
                 .builder()
                 .appName("WordCount")
                 .getOrCreate();
-     app.run(session);
+     String readFileURI = session.sparkContext().getConf().get("spark.codeOne.demo.readFileURI");
+     app.run(session, readFileURI);
       
     }
  
-    public void run(SparkSession session) {
+    public void run(SparkSession session, String readFileURI) {
       
-        Dataset<Row> textRows = loadCloudText(session);
+        Dataset<Row> textRows = loadCloudText(session, readFileURI);
         Tokenizer tokenizer = new Tokenizer().setInputCol("text").setOutputCol("words");
         StopWordsRemover stopWordsRemover = new StopWordsRemover().setInputCol("words").setOutputCol("filtered");
         HashingTF  hashingTF = new HashingTF().setInputCol("filtered").setOutputCol("features");
@@ -69,23 +69,13 @@ public static void main(String args[]) {
 
     }
 
-    private Dataset<Row> loadCloudText(SparkSession session) {
+    private Dataset<Row> loadCloudText(SparkSession session, String fromURI) {
         Dataset<Row> textRows=null;
-        //https://consilience2.blob.core.windows.net/code-one-2018/wine_reviews500.csv
-    //    https://consilience2.blob.core.windows.net/localhostellen
-    //  String csvPath = "/documentSets/5ae757ae669bc76d7f208431/text/wine_reviews500.csv";
-    //  String blobContainerName = "localhostellen";
-       String blobContainerName = "code-one-2018";
-       String csvPath = "/wine_reviews500.csv";
-      String blobAccountName = "consilience2";
-     // blobAccountKey for upload only 
-     // String blobAccountKey = "WPFa6a9nNyPcj7T8V92c3IBYAMJuwpUBLkY6LRJAbXZnQVZl/z2phFr+J6aAJltzcpKcwlRXSc/Y/MoH/wSNxw==";
-      String blobURI = "wasb://" + blobContainerName + "@" + blobAccountName + ".blob.core.windows.net";
-         textRows = session.read().format("csv")
+        textRows = session.read().format("csv")
                     .option("inferSchema", "true")
                     .option("header", "true")
                     .option("delimiter", ",")
-                    .load(blobURI+csvPath);
+                    .load(fromURI);
       return textRows;
         
 }

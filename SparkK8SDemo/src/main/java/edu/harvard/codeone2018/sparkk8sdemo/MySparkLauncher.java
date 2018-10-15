@@ -23,34 +23,29 @@ public class MySparkLauncher implements SparkAppHandle.Listener {
         launcher.submit(args);
     }
     public  void submit(String args[])  throws IOException, InterruptedException {
-        String testCSV = "wine_reviews500.csv";
-        String master = "k8s://https://192.168.99.100:8443";
          String appResource ="local:///opt/spark/jars/SparkK8SDemo-1.0-SNAPSHOT.jar";
-         String image = "registry.hub.docker.com/ellenkraffmiller/text-analysis:latest";
+         String image = System.getProperty("demoImage");
          String sparkClass = "edu.harvard.codeone2018.sparkk8sdemo.SimpleSparkApp";
          
          SparkAppHandle handle = new SparkLauncher()
          .setAppResource(appResource)
          .setMainClass(sparkClass)
-         .setMaster(master)
+         .setMaster(System.getProperty("master"))
          .setSparkHome("/Applications/spark-2.3.2-bin-hadoop2.7")
-     //    .setSparkHome("/Applications/spark-2.5.0-SNAPSHOT-bin-custom-spark")
          .setAppName("demo")
          .setConf("spark.app.name","demo")
          .setConf("spark.executor.instances","1")
          .setConf("spark.kubernetes.container.image",image)
          .setConf("spark.kubernetes.container.image.pullPolicy", "Always")
          .setConf("spark.kubernetes.authenticate.driver.serviceAccountName","spark")
-         .setConf("spark.codeOne.demo.loadFile", testCSV)
+         .setConf("spark.codeOne.demo.readFileURI", System.getProperty("readFileURI"))
          .setConf(SparkLauncher.DRIVER_MEMORY, "2g")
          .addJar("http://central.maven.org/maven2/org/apache/hadoop/hadoop-azure/2.7.2/hadoop-azure-2.7.2.jar")
          .addJar("http://central.maven.org/maven2/com/microsoft/azure/azure-storage/3.1.0/azure-storage-3.1.0.jar")
-         .setDeployMode("cluster")
-      //   .addAppArgs(testCSV)
-                
+         .setDeployMode("cluster")           
          .startApplication(this);
          
-        boolean result = countDownLatch.await(1, TimeUnit.MINUTES);
+        boolean result = countDownLatch.await(5, TimeUnit.MINUTES);
         System.out.println(result? "completed!": "timed out");
      }
     
