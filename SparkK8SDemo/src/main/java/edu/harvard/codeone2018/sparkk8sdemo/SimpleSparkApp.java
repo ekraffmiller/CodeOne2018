@@ -9,21 +9,19 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.ml.Pipeline;
-import org.apache.spark.ml.PipelineModel;
-import org.apache.spark.ml.PipelineStage;
-import org.apache.spark.ml.feature.HashingTF;
+import org.apache.spark.ml.clustering.LDAModel;
 import org.apache.spark.ml.feature.StopWordsRemover;
-import org.apache.spark.ml.feature.Tokenizer;
-import org.apache.spark.mllib.clustering.LDA;
+import org.apache.spark.ml.clustering.LDA;
+import org.apache.spark.ml.feature.CountVectorizer;
+import org.apache.spark.ml.feature.CountVectorizerModel;
+import org.apache.spark.ml.feature.RegexTokenizer;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
 import org.apache.spark.sql.SparkSession;
-import static org.apache.spark.sql.functions.col;
-import static org.apache.spark.sql.functions.explode;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
+import scala.collection.mutable.WrappedArray;
 /**
  *
  * @author ellenk
@@ -42,31 +40,33 @@ public static void main(String args[]) {
     }
  
     public void run(SparkSession session, String readFileURI) {
+        
+        Dataset<Row> textRows = loadText(session, readFileURI);
+        Dataset<Row> tokenized =  new RegexTokenizer().setPattern("\\W").setInputCol("text").setOutputCol("words").transform(textRows);
+        Dataset<Row> filtered = new StopWordsRemover().setInputCol("words").setOutputCol("filtered").transform(tokenized);
+        CountVectorizerModel cvModel = new CountVectorizer()
+                .setInputCol("filtered")
+                .setOutputCol("features").fit(filtered);
+        Dataset<Row> features = cvModel.transform(filtered);
+        
+        String[] vocab =cvModel.vocabulary();
+        LDA lda = new LDA().setK(10).setMaxIter(50);
+        LDAModel model = lda.fit(features);
+        Dataset<Row> topics = model.describeTopics(10);
+        topics.printSchema();
+        List<Row> topicsList = topics.collectAsList();
+     
+        
+        topicsList.forEach(row -> {
+            Integer[] indices = (Integer[]) ((WrappedArray<Integer>) row.getAs("termIndices")).array();
+            String[] terms = new String[indices.length];
+            for (int i = 0; i < indices.length; i++) {
+                terms[i] = vocab[indices[i]];
+            }
+            System.out.println(Arrays.toString(terms));} );
+            
       
-        Dataset<Row> textRows = loadCloudText(session, readFileURI);
-        Tokenizer tokenizer = new Tokenizer().setInputCol("text").setOutputCol("words");
-        StopWordsRemover stopWordsRemover = new StopWordsRemover().setInputCol("words").setOutputCol("filtered");
-        HashingTF  hashingTF = new HashingTF().setInputCol("filtered").setOutputCol("features");
-        LDA lda = new LDA().setK(10).setMaxIterations(50);
-
-         Pipeline pipeline = new Pipeline()
-                .setStages(new PipelineStage[]{tokenizer, stopWordsRemover, hashingTF});
-    
-        // Fit the pipeline to training documents.
-        PipelineModel model = pipeline.fit(textRows);
-    
-        Dataset<Row> wordsData = 
-                 tokenizer.transform(textRows)
-                         .withColumn("word",explode(col("words")))
-                         .groupBy(col("word"))
-                         .count()
-                         .orderBy(col("count").desc());
-         wordsData.show();
-       //     StopWordsRemover stopWordsRemover = new StopWordsRemover().setInputCol("words").setOutputCol("filtered");
-     //   Dataset<Row> filtered = stopWordsRemover.transform(tokenized);
-
-         System.out.println("wordsData distinct words " + wordsData.count() + " counted");
-
+   
     }
 
     private Dataset<Row> loadCloudText(SparkSession session, String fromURI) {
@@ -79,14 +79,18 @@ public static void main(String args[]) {
       return textRows;
         
 }
-    private Dataset<Row> loadText(SparkSession session, String text) {
-        List<Row> simple = Arrays.asList(RowFactory.create(text));
-        JavaSparkContext jsc = new JavaSparkContext(session.sparkContext());
-        JavaRDD<Row> rdd = jsc.parallelize(simple);
-        StructType schema = new StructType();
-        schema = schema.add("text", DataTypes.StringType);
-        Dataset<Row> textDF = session.createDataFrame(rdd.rdd(), schema);
-        return textDF;
+    private Dataset<Row> loadText(SparkSession session, String fromURI) {
+        if (fromURI!=null ) {
+            return loadCloudText(session,fromURI);
+        } else {
+            List<Row> simple = Arrays.asList(RowFactory.create(this.bushSotuText));
+            JavaSparkContext jsc = new JavaSparkContext(session.sparkContext());
+            JavaRDD<Row> rdd = jsc.parallelize(simple);
+            StructType schema = new StructType();
+            schema = schema.add("text", DataTypes.StringType);
+            Dataset<Row> textDF = session.createDataFrame(rdd.rdd(), schema);
+            return textDF;
+            }
     }
     
     
