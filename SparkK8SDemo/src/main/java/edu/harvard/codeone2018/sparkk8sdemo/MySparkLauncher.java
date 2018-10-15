@@ -23,6 +23,7 @@ public class MySparkLauncher implements SparkAppHandle.Listener {
         launcher.submit(args);
     }
     public  void submit(String args[])  throws IOException, InterruptedException {
+        String testCSV = "wine_reviews500.csv";
         String master = "k8s://https://192.168.99.100:8443";
          String appResource ="local:///opt/spark/jars/SparkK8SDemo-1.0-SNAPSHOT.jar";
          String image = "registry.hub.docker.com/ellenkraffmiller/text-analysis:latest";
@@ -40,9 +41,13 @@ public class MySparkLauncher implements SparkAppHandle.Listener {
          .setConf("spark.kubernetes.container.image",image)
          .setConf("spark.kubernetes.container.image.pullPolicy", "Always")
          .setConf("spark.kubernetes.authenticate.driver.serviceAccountName","spark")
+         .setConf("spark.codeOne.demo.loadFile", testCSV)
          .setConf(SparkLauncher.DRIVER_MEMORY, "2g")
+         .addJar("http://central.maven.org/maven2/org/apache/hadoop/hadoop-azure/2.7.2/hadoop-azure-2.7.2.jar")
+         .addJar("http://central.maven.org/maven2/com/microsoft/azure/azure-storage/3.1.0/azure-storage-3.1.0.jar")
          .setDeployMode("cluster")
-       //  .addAppArgs("100")
+      //   .addAppArgs(testCSV)
+                
          .startApplication(this);
          
         boolean result = countDownLatch.await(1, TimeUnit.MINUTES);

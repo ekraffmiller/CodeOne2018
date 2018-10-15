@@ -9,7 +9,14 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.ml.Pipeline;
+import org.apache.spark.ml.PipelineModel;
+import org.apache.spark.ml.PipelineStage;
+import org.apache.spark.ml.clustering.LDAModel;
+import org.apache.spark.ml.feature.HashingTF;
+import org.apache.spark.ml.feature.StopWordsRemover;
 import org.apache.spark.ml.feature.Tokenizer;
+import org.apache.spark.mllib.clustering.LDA;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.RowFactory;
@@ -36,8 +43,18 @@ public static void main(String args[]) {
  
     public void run(SparkSession session) {
       
-        Dataset<Row> textRows = loadText(session, this.bushSotuText);
+        Dataset<Row> textRows = loadCloudText(session);
         Tokenizer tokenizer = new Tokenizer().setInputCol("text").setOutputCol("words");
+        StopWordsRemover stopWordsRemover = new StopWordsRemover().setInputCol("words").setOutputCol("filtered");
+        HashingTF  hashingTF = new HashingTF().setInputCol("filtered").setOutputCol("features");
+        LDA lda = new LDA().setK(10).setMaxIterations(50);
+
+         Pipeline pipeline = new Pipeline()
+                .setStages(new PipelineStage[]{tokenizer, stopWordsRemover, hashingTF});
+    
+        // Fit the pipeline to training documents.
+        PipelineModel model = pipeline.fit(textRows);
+    
         Dataset<Row> wordsData = 
                  tokenizer.transform(textRows)
                          .withColumn("word",explode(col("words")))
@@ -45,10 +62,33 @@ public static void main(String args[]) {
                          .count()
                          .orderBy(col("count").desc());
          wordsData.show();
+       //     StopWordsRemover stopWordsRemover = new StopWordsRemover().setInputCol("words").setOutputCol("filtered");
+     //   Dataset<Row> filtered = stopWordsRemover.transform(tokenized);
+
          System.out.println("wordsData distinct words " + wordsData.count() + " counted");
 
     }
 
+    private Dataset<Row> loadCloudText(SparkSession session) {
+        Dataset<Row> textRows=null;
+        //https://consilience2.blob.core.windows.net/code-one-2018/wine_reviews500.csv
+    //    https://consilience2.blob.core.windows.net/localhostellen
+    //  String csvPath = "/documentSets/5ae757ae669bc76d7f208431/text/wine_reviews500.csv";
+    //  String blobContainerName = "localhostellen";
+       String blobContainerName = "code-one-2018";
+       String csvPath = "/wine_reviews500.csv";
+      String blobAccountName = "consilience2";
+     // blobAccountKey for upload only 
+     // String blobAccountKey = "WPFa6a9nNyPcj7T8V92c3IBYAMJuwpUBLkY6LRJAbXZnQVZl/z2phFr+J6aAJltzcpKcwlRXSc/Y/MoH/wSNxw==";
+      String blobURI = "wasb://" + blobContainerName + "@" + blobAccountName + ".blob.core.windows.net";
+         textRows = session.read().format("csv")
+                    .option("inferSchema", "true")
+                    .option("header", "true")
+                    .option("delimiter", ",")
+                    .load(blobURI+csvPath);
+      return textRows;
+        
+}
     private Dataset<Row> loadText(SparkSession session, String text) {
         List<Row> simple = Arrays.asList(RowFactory.create(text));
         JavaSparkContext jsc = new JavaSparkContext(session.sparkContext());
