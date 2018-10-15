@@ -5,6 +5,14 @@
  */
 package edu.harvard.codeone2018.sparkk8sdemo;
 
+import com.microsoft.azure.storage.CloudStorageAccount;
+import com.microsoft.azure.storage.StorageException;
+import com.microsoft.azure.storage.blob.CloudBlobClient;
+import com.microsoft.azure.storage.blob.CloudBlobContainer;
+import com.microsoft.azure.storage.blob.CloudBlockBlob;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.spark.api.java.JavaRDD;
@@ -28,43 +36,36 @@ import scala.collection.mutable.WrappedArray;
  */
 public class SimpleSparkApp {
   
-public static void main(String args[]) {
+public static void main(String args[]) throws IOException, StorageException,InvalidKeyException, URISyntaxException {
      SimpleSparkApp app = new SimpleSparkApp();
      SparkSession session = SparkSession
                 .builder()
                 .appName("demo")
                 .getOrCreate();
-     String readFileURI = session.sparkContext().getConf().get("spark.codeOne.demo.readFileURI");
-     app.run(session, readFileURI);
+     app.run(session);
       
     }
  
-    public void run(SparkSession session, String readFileURI) {
-        
-        Dataset<Row> textRows = loadText(session, readFileURI);
+    public void run(SparkSession session) throws IOException, StorageException, InvalidKeyException, URISyntaxException {
+        // Convert raw text into feature vectors and vocabulary
+        Dataset<Row> textRows = loadText(session);
         Dataset<Row> tokenized =  new RegexTokenizer().setPattern("\\W").setInputCol("text").setOutputCol("words").transform(textRows);
         Dataset<Row> filtered = new StopWordsRemover().setInputCol("words").setOutputCol("filtered").transform(tokenized);
         CountVectorizerModel cvModel = new CountVectorizer()
                 .setInputCol("filtered")
-                .setOutputCol("features").fit(filtered);
+                .setOutputCol("features").setMinDF(10).fit(filtered);
         Dataset<Row> features = cvModel.transform(filtered);
-        
         String[] vocab =cvModel.vocabulary();
+        
+        // Define LDA model and apply it to features & generate topics
         LDA lda = new LDA().setK(10).setMaxIter(50);
         LDAModel model = lda.fit(features);
+        
+        // Extract topic terms and save results
         Dataset<Row> topics = model.describeTopics(10);
         topics.printSchema();
-        List<Row> topicsList = topics.collectAsList();
-     
-        
-        topicsList.forEach(row -> {
-            Integer[] indices = (Integer[]) ((WrappedArray<Integer>) row.getAs("termIndices")).array();
-            String[] terms = new String[indices.length];
-            for (int i = 0; i < indices.length; i++) {
-                terms[i] = vocab[indices[i]];
-            }
-            System.out.println(Arrays.toString(terms));} );
-            
+        List<Row> topicsList = topics.collectAsList();        
+        saveResults(session, topicsList, vocab);
     }
 
     private Dataset<Row> loadCloudText(SparkSession session, String fromURI) {
@@ -77,8 +78,9 @@ public static void main(String args[]) {
       return textRows;
         
 }
-    private Dataset<Row> loadText(SparkSession session, String fromURI) {
-        if (fromURI!=null ) {
+    private Dataset<Row> loadText(SparkSession session) {
+       String fromURI =session.sparkContext().getConf().get("spark.codeOne.demo.readFileURI");
+       if (fromURI!=null ) {
             return loadCloudText(session,fromURI);
         } else {
             return loadLocalText(session);
@@ -94,8 +96,54 @@ public static void main(String args[]) {
             Dataset<Row> textDF = session.createDataFrame(rdd.rdd(), schema);
             return textDF; 
     }
+    /**
+     * Replace termIndices with term values, for more readablility
+     * Write Results to fileURI, or local file
+     * @param topicsList
+     * @param vocab
+     * @param writeFileURI 
+     */
+    private void saveResults(SparkSession session, List<Row> topicsList, String[] vocab) throws IOException,StorageException, InvalidKeyException, URISyntaxException {
+        StringBuilder sb = new StringBuilder();
+       
+        topicsList.forEach(row -> {
+            Integer[] indices = (Integer[]) ((WrappedArray<Integer>) row.getAs("termIndices")).array();
+            String[] terms = new String[indices.length];
+            for (int i = 0; i < indices.length; i++) {
+                terms[i] = vocab[indices[i]];
+            }
+            sb.append(Arrays.toString(terms)).append(System.lineSeparator());
+            System.out.println(Arrays.toString(terms));
+        } );
+        
+        System.out.println("SAVING RESULT: "+ sb.toString());
+        saveToCloudStorage(session,sb.toString());
+         
+        
+        
+    }
     
-    
+    private void saveToCloudStorage(SparkSession session,String results)
+            throws URISyntaxException, InvalidKeyException,StorageException, IOException {
+        
+        String blobAccountKey = session.conf().get("spark.codeOne.demo.storageKey");
+             String storageConnectionString
+                = "DefaultEndpointsProtocol=https;"
+                + "AccountName=" + "consilience2" + ";"
+                + "AccountKey=" + blobAccountKey +";EndpointSuffix=core.windows.net";
+        System.out.println("storage connection string: " + storageConnectionString);
+         CloudStorageAccount.parse(storageConnectionString);
+      
+            CloudStorageAccount storageAccount = CloudStorageAccount.parse(storageConnectionString);
+            CloudBlobClient blobClient = storageAccount.createCloudBlobClient();
+            // The container is set with a JVM option - usually named for the host where glassfish is running,
+            // so we can browse the data more easily in Azure.
+            CloudBlobContainer container = blobClient.getContainerReference("code-one-2018");
+            container.createIfNotExists();
+             CloudBlockBlob blob = container.getBlockBlobReference("LDAResults.txt");
+            blob.uploadText(results);
+           
+    }
     
     
 
