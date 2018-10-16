@@ -26,7 +26,6 @@ public class MySparkLauncher implements SparkAppHandle.Listener {
     }
 
     public void submit() throws IOException, InterruptedException {
-
         SparkAppHandle handle = new SparkLauncher()
                 .setAppResource("local:///opt/spark/jars/SparkK8SDemo-1.0-SNAPSHOT.jar")
                 .setMainClass("edu.harvard.codeone2018.sparkk8sdemo.SimpleSparkApp")
