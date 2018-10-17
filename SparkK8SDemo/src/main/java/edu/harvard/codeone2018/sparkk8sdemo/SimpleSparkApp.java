@@ -1,8 +1,4 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
+
 package edu.harvard.codeone2018.sparkk8sdemo;
 
 import com.microsoft.azure.storage.CloudStorageAccount;
@@ -26,7 +22,8 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import scala.collection.mutable.WrappedArray;
 /**
- *
+ * Simple text clustering example, reads CSV from Azure Blob Storage, runs LDA Topic Analysis,
+ * and saves the results to Azure.
  * @author ellenk
  */
 public class SimpleSparkApp {
@@ -40,9 +37,18 @@ public static void main(String args[]) throws IOException, StorageException,Inva
      app.run(session);
       
     }
- 
+    /**
+     * Main method - load CSV text, use LDA Topic analysis to generate topic terms
+     * @param session
+     * @throws IOException
+     * @throws StorageException
+     * @throws InvalidKeyException
+     * @throws URISyntaxException 
+     */
     public void run(SparkSession session) throws IOException, StorageException, InvalidKeyException, URISyntaxException {
+        //
         // Convert raw text into feature vectors and vocabulary
+        //
         Dataset<Row> textRows = loadText(session);
         Dataset<Row> tokenized =  new RegexTokenizer().setPattern("\\W").setInputCol("text").setOutputCol("words").transform(textRows);
         Dataset<Row> filtered = new StopWordsRemover().setInputCol("words").setOutputCol("filtered").transform(tokenized);
@@ -52,18 +58,22 @@ public static void main(String args[]) throws IOException, StorageException,Inva
         Dataset<Row> features = cvModel.transform(filtered);
         String[] vocab =cvModel.vocabulary();
         
-        // Define LDA model and apply it to features & generate topics
+        //
+        // Define LDA model and apply it to features to generate topics
+        //
         LDA lda = new LDA().setK(10).setMaxIter(50);
         LDAModel model = lda.fit(features);
-        
         // Extract topic terms and save results
         Dataset<Row> topics = model.describeTopics(10);
-        topics.printSchema();
         List<Row> topicsList = topics.collectAsList();        
         saveResults(session, topicsList, vocab);
     }
 
-   
+   /**
+    * Read CSV file from Azure blob storage into a Spark Dataframe 
+    * @param session
+    * @return 
+    */
     private Dataset<Row> loadText(SparkSession session) {
        String fromURI =session.sparkContext().getConf().get("spark.codeOne.demo.readFileURI");
        return session.read().format("csv")
@@ -76,8 +86,8 @@ public static void main(String args[]) throws IOException, StorageException,Inva
    
     
     /**
-     * Replace termIndices with term values, for more readablility
-     * Write Results to fileURI, or local file
+     * Replace LDA topic termIndices with term values, for more readablility
+     * Write Results to Azure Blob Storage
      * @param topicsList
      * @param vocab
      * @param writeFileURI 
@@ -99,6 +109,16 @@ public static void main(String args[]) throws IOException, StorageException,Inva
         
     }
     
+    /**
+     * Make connection to Azure Storage account, and upload the text results
+     * to Blob storage, in LDAResults.txt
+     * @param session
+     * @param results
+     * @throws URISyntaxException
+     * @throws InvalidKeyException
+     * @throws StorageException
+     * @throws IOException 
+     */
     private void saveToCloudStorage(SparkSession session, String results)
             throws URISyntaxException, InvalidKeyException, StorageException, IOException {
 

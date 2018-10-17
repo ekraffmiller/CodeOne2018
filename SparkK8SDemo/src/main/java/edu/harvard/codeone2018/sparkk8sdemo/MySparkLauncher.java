@@ -1,8 +1,4 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
+
 package edu.harvard.codeone2018.sparkk8sdemo;
 
 import java.io.IOException;
@@ -12,8 +8,8 @@ import org.apache.spark.launcher.SparkAppHandle;
 import org.apache.spark.launcher.SparkLauncher;
 
 /**
- * Simple example of submitting a spark application to a Kubernetes Cluster
- * via the SparkLauncher API
+ * Submits the "SimpleSparkApp" application to a Kubernetes Cluster
+ * via the SparkLauncher API.
  * @author ellenk
  */
 public class MySparkLauncher implements SparkAppHandle.Listener {
@@ -38,8 +34,7 @@ public class MySparkLauncher implements SparkAppHandle.Listener {
                 .setConf("spark.kubernetes.container.image.pullPolicy", "Always")
                 .setConf("spark.kubernetes.authenticate.driver.serviceAccountName", "spark")
                 .setConf("spark.codeOne.demo.readFileURI", System.getProperty("readFileURI"))
-                 .setConf("spark.codeOne.demo.storageKey", System.getProperty("storageKey"))
-               .setConf(SparkLauncher.DRIVER_MEMORY, "2g")
+                .setConf("spark.codeOne.demo.storageKey", System.getProperty("storageKey"))
                 .addJar("http://central.maven.org/maven2/org/apache/hadoop/hadoop-azure/2.7.2/hadoop-azure-2.7.2.jar")
                 .addJar("http://central.maven.org/maven2/com/microsoft/azure/azure-storage/3.1.0/azure-storage-3.1.0.jar")
                 .setDeployMode("cluster")
