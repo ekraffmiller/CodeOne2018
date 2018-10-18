@@ -102,7 +102,6 @@ public static void main(String args[]) throws IOException, StorageException,Inva
                 terms[i] = vocab[indices[i]];
             }
             sb.append(Arrays.toString(terms)).append(System.lineSeparator());
-            System.out.println(Arrays.toString(terms));
         } );
         
         saveToCloudStorage(session,sb.toString());         
@@ -123,19 +122,18 @@ public static void main(String args[]) throws IOException, StorageException,Inva
             throws URISyntaxException, InvalidKeyException, StorageException, IOException {
 
         String blobAccountKey = session.conf().get("spark.codeOne.demo.storageKey");
-        String storageConnectionString
-                = "DefaultEndpointsProtocol=https;"
-                + "AccountName=" + "consilience2" + ";"
-                + "AccountKey=" + blobAccountKey + ";EndpointSuffix=core.windows.net";
-        System.out.println("storage connection string: " + storageConnectionString);
-        CloudStorageAccount.parse(storageConnectionString);
+            String storageConnectionString
+                    = "DefaultEndpointsProtocol=https;"
+                    + "AccountName=" + "consilience2" + ";"
+                    + "AccountKey=" + blobAccountKey + ";EndpointSuffix=core.windows.net";
+            CloudStorageAccount.parse(storageConnectionString);
 
-        CloudStorageAccount storageAccount = CloudStorageAccount.parse(storageConnectionString);
-        CloudBlobClient blobClient = storageAccount.createCloudBlobClient();
-        CloudBlobContainer container = blobClient.getContainerReference("code-one-2018");
-        container.createIfNotExists();
-        CloudBlockBlob blob = container.getBlockBlobReference("LDAResults.txt");
-        blob.uploadText(results);
-    }
+            CloudStorageAccount storageAccount = CloudStorageAccount.parse(storageConnectionString);
+            CloudBlobClient blobClient = storageAccount.createCloudBlobClient();
+            CloudBlobContainer container = blobClient.getContainerReference("code-one-2018");
+            container.createIfNotExists();
+            CloudBlockBlob blob = container.getBlockBlobReference("LDAResults.txt");
+            blob.uploadText(results);
+        }
 
 }
