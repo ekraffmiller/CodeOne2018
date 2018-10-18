@@ -1,4 +1,10 @@
 # CodeOne2018
 
-Demo Application for Running Spark Application on Kubernetes.  Reads and writes to an Azure Blob
-Runtime arguments for SparkLauncher:
+Demo for Running Spark Application on Kubernetes.  Reads and writes to an Azure Blob
+
+Runtime arguments for SparkLauncher:  
+-Dmaster="k8s://{your kubernetes url}"    
+-DreadFileURI="wasb://code-one-2018@consilience2.blob.core.windows.net/wine_reviews500.csv"   
+-DdemoImage="registry.hub.docker.com/ellenkraffmiller/text-analysis:latest"  
+-DstorageKey="{azure storage account key}"  
+         
