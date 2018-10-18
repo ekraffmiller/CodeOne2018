@@ -1,6 +1,6 @@
 # CodeOne2018
 
-Demo for Running Spark Application on Kubernetes.  Reads and writes to an Azure Blob
+Demo for Running Spark Application on Kubernetes.  Performs simple text analysis on CSV file. Reads and writes to an Azure Blob.
 
 Runtime arguments for SparkLauncher:  
 -Dmaster="k8s://{your kubernetes url}"    
