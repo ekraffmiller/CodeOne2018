@@ -22,8 +22,12 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import scala.collection.mutable.WrappedArray;
 /**
- * Simple text clustering example, reads CSV from Azure Blob Storage, runs LDA Topic Analysis,
+ * Simple Machine Learning example, reads CSV from Azure Blob Storage, runs LDA Topic Model,
  * and saves the results to Azure.
+ * Topic modeling is a type of statistical modeling for discovering the abstract “topics” 
+ * that occur in a collection of documents. Latent Dirichlet Allocation (LDA) is an example of 
+ * topic model and is used to classify text in a document to a particular topic. LDA is included
+ * in the SparkML library.
  * @author ellenk
  */
 public class SimpleSparkApp {
@@ -38,7 +42,7 @@ public static void main(String args[]) throws IOException, StorageException,Inva
       
     }
     /**
-     * Main method - load CSV text, use LDA Topic analysis to generate topic terms
+     * Main method - load CSV text, use LDA Topic modeling to generate topic terms
      * @param session
      * @throws IOException
      * @throws StorageException
