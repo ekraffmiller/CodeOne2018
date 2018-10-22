@@ -1,4 +1,3 @@
-
 package edu.harvard.codeone2018.sparkk8sdemo;
 
 import com.microsoft.azure.storage.CloudStorageAccount;
@@ -21,84 +20,74 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import scala.collection.mutable.WrappedArray;
+
 /**
- * Simple Machine Learning example, reads CSV from Azure Blob Storage, runs LDA Topic Model,
- * and saves the results to Azure.
- * Topic modeling is a type of statistical modeling for discovering the abstract “topics” 
- * that occur in a collection of documents. Latent Dirichlet Allocation (LDA) is an example of 
- * topic model and is used to classify text in a document to a particular topic. LDA is included
- * in the SparkML library.
+ * Simple Machine Learning example, reads CSV from Azure Blob Storage, runs LDA
+ * Topic Model, and saves the results to Azure. Topic modeling is a type of
+ * statistical modeling for discovering the abstract “topics” that occur in a
+ * collection of documents. Latent Dirichlet Allocation (LDA) is an example of
+ * topic model and is used to classify text in a document to a particular topic.
+ * LDA is included in the SparkML library.
+ *
  * @author ellenk
  */
 public class SimpleSparkApp {
-  
-public static void main(String args[]) throws IOException, StorageException,InvalidKeyException, URISyntaxException {
-     SimpleSparkApp app = new SimpleSparkApp();
-     SparkSession session = SparkSession
-                .builder()
-                .appName("demo")
-                .getOrCreate();
-     app.run(session);
-      
-    }
-    /**
-     * Main method - load CSV text, use LDA Topic modeling to generate topic terms
-     * @param session
-     * @throws IOException
-     * @throws StorageException
-     * @throws InvalidKeyException
-     * @throws URISyntaxException 
-     */
-    public void run(SparkSession session) throws IOException, StorageException, InvalidKeyException, URISyntaxException {
+
+    public static void main(String args[]) throws IOException, StorageException, InvalidKeyException, URISyntaxException {
+        SparkSession session = SparkSession.builder().appName("demo").getOrCreate();
         //
         // Convert raw text into feature vectors and vocabulary
         //
         Dataset<Row> textRows = loadText(session);
-        Dataset<Row> tokenized =  new RegexTokenizer().setPattern("\\W").setInputCol("text").setOutputCol("words").transform(textRows);
-        Dataset<Row> filtered = new StopWordsRemover().setInputCol("words").setOutputCol("filtered").transform(tokenized);
+        Dataset<Row> tokenized =  new RegexTokenizer().setPattern("\\W").setInputCol("text")
+                .setOutputCol("words").transform(textRows);
+        Dataset<Row> filtered = new StopWordsRemover().setInputCol("words")
+                .setOutputCol("filtered").transform(tokenized);
         CountVectorizerModel cvModel = new CountVectorizer()
                 .setInputCol("filtered")
                 .setOutputCol("features").setMinDF(10).fit(filtered);
         Dataset<Row> features = cvModel.transform(filtered);
-        String[] vocab =cvModel.vocabulary();
-        
+        String[] vocab = cvModel.vocabulary();
+
         //
-        // Define LDA model and apply it to features to generate topics
+        // Use feature vectors to generate LDA model
         //
         LDA lda = new LDA().setK(10).setMaxIter(50);
         LDAModel model = lda.fit(features);
-        // Extract topic terms and save results
+
+        // Extract topics and save results
         Dataset<Row> topics = model.describeTopics(10);
-        List<Row> topicsList = topics.collectAsList();        
+        List<Row> topicsList = topics.collectAsList();
         saveResults(session, topicsList, vocab);
     }
 
-   /**
-    * Read CSV file from Azure blob storage into a Spark Dataframe 
-    * @param session
-    * @return 
-    */
-    private Dataset<Row> loadText(SparkSession session) {
-       String fromURI =session.sparkContext().getConf().get("spark.codeOne.demo.readFileURI");
-       return session.read().format("csv")
-                    .option("inferSchema", "true")
-                    .option("header", "true")
-                    .option("delimiter", ",")
-                    .load(fromURI);
-      
+    /**
+     * Read CSV file from Azure blob storage into a Spark Dataframe
+     *
+     * @param session
+     * @return
+     */
+    private static Dataset<Row> loadText(SparkSession session) {
+        String fromURI = session.sparkContext().getConf().get("spark.codeOne.demo.readFileURI");
+        return session.read().format("csv")
+                .option("inferSchema", "true")
+                .option("header", "true")
+                .option("delimiter", ",")
+                .load(fromURI);
+
     }
-   
-    
+
     /**
      * Replace LDA topic termIndices with term values, for more readablility
      * Write Results to Azure Blob Storage
+     *
      * @param topicsList
      * @param vocab
-     * @param writeFileURI 
+     * @param writeFileURI
      */
-    private void saveResults(SparkSession session, List<Row> topicsList, String[] vocab) throws IOException,StorageException, InvalidKeyException, URISyntaxException {
+    private static void saveResults(SparkSession session, List<Row> topicsList, String[] vocab) throws IOException, StorageException, InvalidKeyException, URISyntaxException {
         StringBuilder sb = new StringBuilder();
-       
+
         topicsList.forEach(row -> {
             Integer[] indices = (Integer[]) ((WrappedArray<Integer>) row.getAs("termIndices")).array();
             String[] terms = new String[indices.length];
@@ -106,38 +95,39 @@ public static void main(String args[]) throws IOException, StorageException,Inva
                 terms[i] = vocab[indices[i]];
             }
             sb.append(Arrays.toString(terms)).append(System.lineSeparator());
-        } );
-        
-        saveToCloudStorage(session,sb.toString());         
-        
+        });
+
+        saveToCloudStorage(session, sb.toString());
+
     }
-    
+
     /**
-     * Make connection to Azure Storage account, and upload the text results
-     * to Blob storage, in LDAResults.txt
+     * Make connection to Azure Storage account, and upload the text results to
+     * Blob storage, in LDAResults.txt
+     *
      * @param session
      * @param results
      * @throws URISyntaxException
      * @throws InvalidKeyException
      * @throws StorageException
-     * @throws IOException 
+     * @throws IOException
      */
-    private void saveToCloudStorage(SparkSession session, String results)
+    private static void saveToCloudStorage(SparkSession session, String results)
             throws URISyntaxException, InvalidKeyException, StorageException, IOException {
 
         String blobAccountKey = session.conf().get("spark.codeOne.demo.storageKey");
-            String storageConnectionString
-                    = "DefaultEndpointsProtocol=https;"
-                    + "AccountName=" + "consilience2" + ";"
-                    + "AccountKey=" + blobAccountKey + ";EndpointSuffix=core.windows.net";
-            CloudStorageAccount.parse(storageConnectionString);
+        String storageConnectionString
+                = "DefaultEndpointsProtocol=https;"
+                + "AccountName=" + "consilience2" + ";"
+                + "AccountKey=" + blobAccountKey + ";EndpointSuffix=core.windows.net";
+        CloudStorageAccount.parse(storageConnectionString);
 
-            CloudStorageAccount storageAccount = CloudStorageAccount.parse(storageConnectionString);
-            CloudBlobClient blobClient = storageAccount.createCloudBlobClient();
-            CloudBlobContainer container = blobClient.getContainerReference("code-one-2018");
-            container.createIfNotExists();
-            CloudBlockBlob blob = container.getBlockBlobReference("LDAResults.txt");
-            blob.uploadText(results);
-        }
+        CloudStorageAccount storageAccount = CloudStorageAccount.parse(storageConnectionString);
+        CloudBlobClient blobClient = storageAccount.createCloudBlobClient();
+        CloudBlobContainer container = blobClient.getContainerReference("code-one-2018");
+        container.createIfNotExists();
+        CloudBlockBlob blob = container.getBlockBlobReference("LDAResults.txt");
+        blob.uploadText(results);
+    }
 
 }
