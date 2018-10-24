@@ -10,3 +10,4 @@ Demo for Running Spark Application on Kubernetes.  Performs simple text analysis
 -DdemoImage="registry.hub.docker.com/ellenkraffmiller/text-analysis:latest"  
 -DstorageKey="{azure storage account key}"  
 ```         
+Quicktime movie of auto-scaling the SparkPI application on Kubernetes included in our presentation is here: https://youtu.be/_Y4_bWHAmPc
